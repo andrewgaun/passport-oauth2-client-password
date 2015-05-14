@@ -351,4 +351,47 @@ vows.describe('ClientPasswordStrategy').addBatch({
     },
   },
 
+  'strategy handling a request with clientIdField and clientSecretField options': {
+    topic: function() {
+      var strategy = new ClientPasswordStrategy({clientIdField:'clientId', clientSecretField:'clientSecret'}, function(clientId, clientSecret, done) {
+        if (clientId == 'c1234' && clientSecret == 'shh-its-a-secret') {
+          done(null, { id: clientId });
+        } else {
+          done(null, false);
+        }
+      });
+      return strategy;
+    },
+
+    'after augmenting with actions': {
+      topic: function(strategy) {
+        var self = this;
+        var req = {};
+        strategy.success = function(user) {
+          self.callback(null, user);
+        }
+        strategy.fail = function() {
+          self.callback(new Error('should-not-be-called'));
+        }
+        strategy.error = function() {
+          self.callback(new Error('should-not-be-called'));
+        }
+
+        req.body = {};
+        req.body['clientId'] = 'c1234';
+        req.body['clientSecret'] = 'shh-its-a-secret';
+        process.nextTick(function () {
+          strategy.authenticate(req);
+        });
+      },
+
+      'should not generate an error' : function(err, user) {
+        assert.isNull(err);
+      },
+      'should authenticate' : function(err, user) {
+        assert.equal(user.id, 'c1234');
+      },
+    },
+  },
+
 }).export(module);
